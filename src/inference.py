@@ -31,22 +31,15 @@ from recommendationSystem.upper_body.main import upper_body_recommend_fashion_it
 from recommendationSystem.complementary.male.main import male_complementary_recommend_fashion_item
 from recommendationSystem.complementary.female.main import female_complementary_recommend_fashion_item
 
-PROJECT_ROOT = Path(__file__).absolute().parents[1].absolute()
-check_min_version("0.10.0.dev0")
 
-input_category = "upper_body"  # hnakhodha mn GUI
-gender = "femalee"  # hnakhodha mn GUI
+@torch.inference_mode()
+def main():
+    PROJECT_ROOT = Path(__file__).absolute().parents[1].absolute()
+    check_min_version("0.10.0.dev0")
 
-
-def parse_args():
     parser = argparse.ArgumentParser(description="Full inference script")
 
-    if input_category == "upper_body":
-        dataset = "vitonhd"
-        output_dir = PROJECT_ROOT / "datasets" / "vitonHDDataset" / "test" / "output"
-    else:
-        dataset = "dresscode"
-        output_dir = PROJECT_ROOT / "datasets" / "dresscodeDataset" / input_category / "output"
+
     parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
@@ -58,7 +51,7 @@ def parse_args():
         "--output_dir",
         type=str,
         required=False,
-        default=output_dir,
+        default=None,
         help="Path to the output directory",
     )
 
@@ -102,10 +95,12 @@ def parse_args():
 
     parser.add_argument("--num_vstar", default=16, type=int, help="Number of predicted v* images to use")
     parser.add_argument("--test_order", type=str, default="unpaired", required=False, choices=["unpaired", "paired"])
-    parser.add_argument("--dataset", type=str, default=dataset, required=False, choices=["dresscode", "vitonhd"],
+    parser.add_argument("--dataset", type=str, default=None, required=False, choices=["dresscode", "vitonhd"],
                         help="dataset to use")
     parser.add_argument("--category", type=str, choices=['all', 'lower_body', 'upper_body', 'dresses'],
-                        default=input_category)
+                        default=None)
+    parser.add_argument("--gender", type=str, choices=['male', 'female'],
+                        default=None)
     parser.add_argument("--use_png", default=False, action="store_true", help="Whether to use png or jpg for saving")
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of diffusion steps")
     parser.add_argument("--guidance_scale", default=7.5, type=float, help="Guidance scale")
@@ -116,13 +111,13 @@ def parse_args():
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
         args.local_rank = env_local_rank
-
-    return args
-
-
-@torch.inference_mode()
-def main():
-    args = parse_args()
+    ################################################################################
+    if args.category == "upper_body":
+        args.dataset = "vitonhd"
+        args.output_dir = PROJECT_ROOT / "datasets" / "vitonHDDataset" / "test" / "output"
+    else:
+        args.dataset = "dresscode"
+        args.output_dir = PROJECT_ROOT / "datasets" / "dresscodeDataset" / args.category / "output"
     if args.dataset == "vitonhd":
         VitonHD_replace_file_extension_with_jpg()
         VitonHD_update_pairs_file()
@@ -133,26 +128,26 @@ def main():
         preprocessDresscode(args.category)
     if args.category == "upper_body":
         upper_body_recommend_fashion_item(PROJECT_ROOT / "datasets" / "vitonHDDataset" / "test" / "cloth_BG")
-        if gender == "male":
+        if args.gender == "male":
             male_complementary_recommend_fashion_item(
                 PROJECT_ROOT / "datasets" / "vitonHDDataset" / "test" / "cloth_BG")
-        if gender == "female":
+        if args.gender == "female":
             female_complementary_recommend_fashion_item(
                 PROJECT_ROOT / "datasets" / "vitonHDDataset" / "test" / "cloth_BG")
     if args.category == "lower_body":
         lower_body_recommend_fashion_item(PROJECT_ROOT / "datasets" / "dresscodeDataset" / args.category / "cloth_BG")
-        if gender == "male":
+        if args.gender == "male":
             male_complementary_recommend_fashion_item(
                 PROJECT_ROOT / "datasets" / "dresscodeDataset" / args.category / "cloth_BG")
-        if gender == "female":
+        if args.gender == "female":
             female_complementary_recommend_fashion_item(
                 PROJECT_ROOT / "datasets" / "dresscodeDataset" / args.category / "cloth_BG")
     if args.category == "dresses":
         dresses_recommend_fashion_item(PROJECT_ROOT / "datasets" / "dresscodeDataset" / args.category / "cloth_BG")
-        if gender == "male":
+        if args.gender == "male":
             male_complementary_recommend_fashion_item(
                 PROJECT_ROOT / "datasets" / "dresscodeDataset" / args.category / "cloth_BG")
-        if gender == "female":
+        if args.gender == "female":
             female_complementary_recommend_fashion_item(
                 PROJECT_ROOT / "datasets" / "dresscodeDataset" / args.category / "cloth_BG")
     # Check if the dataset dataroot is provided
@@ -365,8 +360,8 @@ def main():
         ).images
 
         # Delete all files in the directory
-        for filename in os.listdir(os.path.join(save_dir, input_category)):
-            os.remove(os.path.join(save_dir, input_category, filename))
+        for filename in os.listdir(os.path.join(save_dir, args.category)):
+            os.remove(os.path.join(save_dir, args.category, filename))
 
         # Save images
         for gen_image, cat, name in zip(generated_images, category, batch["im_name"]):

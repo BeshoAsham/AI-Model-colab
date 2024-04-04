@@ -83,7 +83,11 @@ def female_complementary_recommend_fashion_item(folder_path):
 
             os.makedirs(output_folder, exist_ok=True)
             for i, img_path in enumerate(recommended_images):
+                img_path = img_path.replace("\\", "/")
                 img = Image.open(Path(__file__).resolve().parent / img_path)
+                # Convert RGBA to RGB
+                if img.mode == 'RGBA':
+                    img = img.convert('RGB')
                 img.save(os.path.join(output_folder, f'{filename}_recommended_image_{i}.jpg'))
 
     return all_recommended_images
